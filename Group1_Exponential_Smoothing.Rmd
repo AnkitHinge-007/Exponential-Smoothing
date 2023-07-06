@@ -1,0 +1,828 @@
+---
+title: "Exponential Smoothing"
+output:
+  html_document:
+    df_print: paged
+---
+
+### GROUP-1
+
+20BDS026 --- HARI PRIYAM DWIVEDI
+
+20BDS008 --- ANKIT HINGE
+
+20BDS059 --- TAPAN GARASANGI
+
+20BDS040 --- POORNIMA
+
+20BDS050 --- SHREYAS BULBULE
+
+20BDS032 --- KETAN BHADWARIYA
+
+20BDS034 --- NAMAN SRIVASTAVA
+
+20BDS009 --- ANKIT KUMAR
+
+20BDS060 --- UTKARSH
+
+20BDS062 --- VEEPURI KARUNA PRAKASH
+
+```{r}
+library(fpp3)
+library(dplyr)
+library(ggplot2)
+```
+
+# 1. Simple Exponential Smoothing
+
+Exponential smoothing is a widely used forecasting method for short-term forecasts. The technique assigns larger weights to more recent observations while assigning exponentially decreasing weights as the observations get increasingly distant.
+
+**Naïve method** all forecasts for the future are equal to the last observed value of the series.
+
+$\hat{y}_{T+h|T} = y_{T}$
+
+**Average method** all future forecasts are equal to a simple average of the observed data.
+
+$\hat{y}_{T+h|T} = \frac1T \sum_{t=1}^T y_t$
+
+### Simple Exponential Smoothing
+
+This method is suitable for forecasting data with no clear trend or seasonal pattern. Forecasts are calculated using weighted averages, where the weights decrease exponentially as observations come from further in the past --- the smallest weights are associated with the oldest observations. \begin{equation}
+\hat{y}_{T + 1 | T} = \alpha y_{T} + (1 - \alpha)\hat{y}_{T | T - 1}
+\end{equation} ​ where $0≤\alpha≤1$ is the smoothing parameter. ​
+
+The smoothing factor $α$ controls the rate at which the weights of past observations decrease. When $α$ is closer to 1, the model puts more weight on recent observations and responds more quickly to changes in the time series. When $α$ is closer to 0, the model puts more weight on older observations and is slower to respond to changes.
+
+#### Weighted Average Form
+
+The forecast at time $T+1$ is equal to a weighted average between the most recent observation $y_T$ and the previous forecast $\hat{y}_{T|T-1}$ . Let the first fitted value at time 1 be denoted by\
+$ℓ_0$:
+
+```{=tex}
+\begin{align*}
+  \hat{y}_{2|1} &= \alpha y_1 + (1-\alpha) \ell_0\\
+  \hat{y}_{3|2} &= \alpha y_2 + (1-\alpha) \hat{y}_{2|1}\\
+  \hat{y}_{4|3} &= \alpha y_3 + (1-\alpha) \hat{y}_{3|2}\\
+  \vdots\\
+  \hat{y}_{T|T-1} &= \alpha y_{T-1} + (1-\alpha) \hat{y}_{T-1|T-2}\\
+  \hat{y}_{T+1|T} &= \alpha y_T + (1-\alpha) \hat{y}_{T|T-1}.
+\end{align*}
+```
+by Substitution,
+
+```{=tex}
+\begin{align*}
+  \hat{y}_{3|2}   & = \alpha y_2 + (1-\alpha) \left[\alpha y_1 + (1-\alpha) \ell_0\right]              \\
+                 & = \alpha y_2 + \alpha(1-\alpha) y_1 + (1-\alpha)^2 \ell_0                          \\
+  \hat{y}_{4|3}   & = \alpha y_3 + (1-\alpha) [\alpha y_2 + \alpha(1-\alpha) y_1 + (1-\alpha)^2 \ell_0]\\
+                 & = \alpha y_3 + \alpha(1-\alpha) y_2 + \alpha(1-\alpha)^2 y_1 + (1-\alpha)^3 \ell_0 \\
+                 & ~~\vdots                                                                           \\
+  \hat{y}_{T+1|T} & =  \sum_{j=0}^{T-1} \alpha(1-\alpha)^j y_{T-j} + (1-\alpha)^T \ell_{0}.
+\end{align*}
+```
+#### Component Form
+
+For simple exponential smoothing, the only component included is the level, $ℓ_t$. The component form of simple exponential smoothing is given by:
+
+```{=tex}
+\begin{align*}
+  \text{Forecast equation}  && \hat{y}_{t+h|t} & = \ell_{t}\\
+  \text{Smoothing equation} && \ell_{t}        & = \alpha y_{t} + (1 - \alpha)\ell_{t-1},
+\end{align*}
+```
+**Flat forecasts**
+
+Simple exponential smoothing has a "flat" forecast function:
+
+$\hat{y}_{T+h|T} = \hat{y}_{T+1|T}=\ell_T, \qquad h=2,3,\dots$
+
+**Optimisation**
+
+The unknown parameters and the initial values for any exponential smoothing method can be estimated by minimising the SSE. The residuals are specified as $e_t=y_t - \hat{y}_{t|t-1}$ for $t=1,\dots,T$. Hence, we find the values of the unknown parameters and the initial values that minimise
+
+```{=tex}
+\begin{equation}
+\text{SSE}=\sum_{t=1}^T(y_t - \hat{y}_{t|t-1})^2=\sum_{t=1}^Te_t^2
+\end{equation}
+```
+### Example: Algerian Exports
+
+```{r}
+algeria_eco <- global_economy %>%
+  filter(Country == "Algeria")
+```
+
+```{r}
+algeria_eco
+```
+
+```{r}
+algeria_eco %>% autoplot(Exports) + labs( y= "Exports (% in GDP)",
+        title = "Algeria Exports of goods and services (1960-2017)" )
+```
+
+Can clearly see the data doesn't show any trend or seasonality.
+
+The ETS() function to estimate the equivalent model for simple exponential smoothing. Let's find the optimal values of $α$ and $ℓ_0$, and generate forecasts.
+
+```{r}
+#Estimate parameters
+fit <- algeria_eco %>%
+  model(ETS(Exports ~ error("A") + trend("N") + season("N")))
+```
+
+```{r}
+fit %>% report()
+```
+
+Optimal values based on the simple exponential smoothing of ETS() function are $α$ equal to 0.84 and $ℓ_0$ equal to 39.53
+
+```{r}
+Forecast <- fit %>%
+  forecast(h=5)
+
+Forecast
+```
+
+Above output shows the forecasted value for the next 5 years, which is the same value: 22.4448.
+
+```{r}
+Forecast %>%
+  autoplot(algeria_eco)+
+  geom_line(aes(y= .fitted), col="#D55E00",
+            data = augment(fit)) +
+  labs(y="Exports (% of GDP)", 
+       title= "Simple exponential smoothing ETS(A,N,N)") + guides(colour ="None")
+```
+
+The above plot shows the forecasted value for the next 5 years. Given the values are the same, hence the forecast line is horizontal.
+
+------------------------------------------------------------------------
+
+# 2. Methods with Trend
+
+## Holt's Linear Trend Method
+
+In 1957 Holt extended simple exponential smoothing to allow the forecasting of data with a trend. This method involves a forecast equation and two smoothing equations:
+
+```{=tex}
+\begin{align*}
+\text{Forecast equation} && \hat{y}_{t+h|t} = l_{t} + hb_{t} \\
+\text{Level equation} && l_{t} = \alpha y_{t} + (1-\alpha )(l_{t-1}+b_{t-1}) \\
+\text{Trend equation} && b_{t} = \beta (l_{t}-l_{t-1}) + (1-\beta )b_{t-1}
+\end{align*}
+```
+$b_{t}$ denotes an estimate of the trend (slope) of the series at time $t$,
+
+$α$ is the smoothing parameter for the level, $0\leq \alpha \leq 1$,
+
+$β$ is the smoothing parameter for the trend, $0\leq \beta \leq 1$.
+
+As with simple exponential smoothing, the level equation here shows that $l_{t}$ is a weighted average of observation $y_{t}$ and the one-step-ahead training forecast for time $t$, here given by $l_{t-1}+b_{t-1}$. The trend equation shows that $b_{t}$ is a weighted average of the estimated trend at time $t$ based on $l_{t}-l_{t-1}$ and $b_{t}$, the previous estimate of the trend.
+
+The forecast function is no longer flat but trending. The $h$-step-ahead forecast is equal to the last estimated level plus $h$ times the last estimated trend value. Hence the forecasts are a linear function of $h$.
+
+### Example: Australian Population
+
+```{r}
+aus_economy <- global_economy |>
+  filter(Code == "AUS") |>
+  mutate(Pop = Population / 1e6)
+
+```
+
+```{r}
+aus_economy
+```
+
+```{r}
+autoplot(aus_economy, Pop) +
+  labs(y = "Millions", title = "Australian population")
+```
+
+Predicted population for the next 15 years
+
+```{r}
+fit <- aus_economy |>
+  model(
+    AAN = ETS(Pop ~ error("A") + trend("A") + season("N"))
+  )
+fc <- fit |> forecast(h = 15)
+fc
+```
+
+```{r}
+accuracy(fit)
+```
+
+```{r}
+tidy(fit)
+```
+
+```{r}
+fc |>
+  autoplot(aus_economy) +
+  labs(title = "Australian population",
+       y = "Millions") +
+  guides(colour = guide_legend(title = "Forecast"))
+
+```
+
+Comparison of SES with Holt's method
+
+```{r}
+aus_economy |>
+  model(
+    `SES method` = ETS(Pop ~ error("A") + trend("N") + season("N")),
+    `Holt's method` = ETS(Pop ~ error("A") + trend("A") + season("N"))
+  ) |>
+  forecast(h = 15) |>
+  autoplot(aus_economy, level = NULL) +
+  labs(title = "Australian population",
+       y = "Millions") +
+  guides(colour = guide_legend(title = "Forecast"))
+```
+
+Figure above shows the forecasts for years 2018--2032 generated from Holt's linear trend method and the SES method.
+
+```{r}
+aus_economy |>
+  stretch_tsibble(.init=10) |>
+  model(
+    `SES method` = ETS(Pop ~ error("A") + trend("N") + season("N")),
+    `Holt's method` = ETS(Pop ~ error("A") + trend("A") + season("N"))
+  ) |>
+  forecast(h = 15) |>
+  accuracy(aus_economy)
+```
+
+Above metrics shows that, the Holt's method is way more better than SES method.
+
+------------------------------------------------------------------------
+
+## Damped Trend Methods
+
+The forecasts generated by Holt's linear method display a constant trend indefinitely into the future. Empirical evidence indicates that these methods tend to over-forecast, especially for longer forecast horizons.
+
+Motivated by this observation, Gardner & McKenzie (1985) introduced a parameter that "dampens" the trend to a flat line some time in the future.
+
+Methods that include a damped trend have proven to be very successful, and are arguably the most popular individual methods when forecasts are required automatically for many series.
+
+In conjunction with the smoothing parameters $α$ and $β$ (with values between 0 and 1 as in Holt's method), this method also includes a damping parameter 0\<$ϕ$\<1: \begin{align*}
+  \hat{y}_{t+h|t} &= \ell_{t} + (\phi+\phi^2 + \dots + \phi^{h})b_{t} \\
+  \ell_{t} &= \alpha y_{t} + (1 - \alpha)(\ell_{t-1} + \phi b_{t-1})\\
+  b_{t} &= \beta(\ell_{t} - \ell_{t-1}) + (1 -\beta)\phi b_{t-1}.
+\end{align*} If $ϕ$=1, the method is identical to Holt's linear method.
+
+Realistically 0.8 $<=$ $ϕ$ $<=$ 0.98
+
+We Achieve Short term forecasts trending and long term forecasts constant.
+
+### Example: Australian Population(Continued)
+
+Forecasts for years 2018--2032 generated from Holt's linear trend method and the damped trend method :
+
+```{r}
+aus_economy <- global_economy |>
+  filter(Code == "AUS") |>
+  mutate(Pop = Population / 1e6)
+```
+
+```{r}
+aus_economy |>
+  model(
+    `Holt's method` = ETS(Pop ~ error("A") +
+                       trend("A") + season("N")),
+    `Damped Holt's method` = ETS(Pop ~ error("A") +
+                       trend("Ad", phi = 0.9) + season("N"))
+  ) |>
+  forecast(h = 15) |>
+  autoplot(aus_economy, level = NULL) +
+  labs(title = "Australian population",
+       y = "Millions") +
+  guides(colour = guide_legend(title = "Forecast"))
+```
+
+Used low $ϕ$ and high h to show clear difference
+
+### Example: Internet Usage
+
+We compare the forecasting performance of the three exponential smoothing methods that we have considered so far, in forecasting the number of users connected to the internet via a server. The data is observed over 100 min.
+
+```{r}
+www_usage <- as_tsibble(WWWusage)
+www_usage
+```
+
+We will use time series cross-validation to compare the one-step forecast accuracy of the three methods.
+
+```{r}
+www_usage |>
+  stretch_tsibble(.init = 10) |>
+  model(
+    SES = ETS(value ~ error("A") + trend("N") + season("N")),
+    Holt = ETS(value ~ error("A") + trend("A") + season("N")),
+    Damped = ETS(value ~ error("A") + trend("Ad") +
+                   season("N"))
+  ) |>
+  forecast(h = 1) |>
+  accuracy(www_usage)
+```
+
+Damped Holt's method is best whether you compare MAE or RMSE values. So we will proceed with using the damped Holt's method and apply it to the whole data set to get forecasts for future minutes.
+
+```{r}
+fit_damp <- www_usage |>
+  model(
+    Damped = ETS(value ~ error("A") + trend("Ad") + season("N"))
+  )
+
+tidy(fit_damp)
+```
+
+```{r}
+fit_damp |>
+  forecast(h = 10) |>
+  autoplot(www_usage) +
+  labs(x="Minute", y="Number of users",
+       title = "Internet usage per minute")
+```
+
+Comparision of SES, Holt's method, and Damped Model
+
+```{r}
+www_usage |>
+  model(
+    `SES` = ETS(value ~ error("A") + trend("N") + season("N")),
+    `Holt's method` = ETS(value ~ error("A") + trend("A") + season("N")),
+    `Damped method` = ETS(value ~ error("A") + trend("Ad", phi = 0.95) + season("N"))
+  ) |>
+  forecast(h = 10) |>
+  autoplot(www_usage, level = NULL) +
+  labs(title = "Minute",
+       y = "Number of Users") +
+  guides(colour = guide_legend(title = "Forecast"))
+```
+
+------------------------------------------------------------------------
+
+# 3. Methods with Seasonality
+
+## Holt-Winters' Additive Method
+
+In time series data, **seasonality** is the presence of variations that occur at specific regular intervals less than a year, such as weekly, monthly, or quarterly. Seasonality may be caused by various factors, such as weather, vacation, and holidays and consists of periodic, repetitive, and generally regular and predictable patterns in the levels of a time series.
+
+Holt and Winters extended Holt's method to capture seasonality present in data. The Holt-Winters seasonal method comprises the forecast equation and three smoothing equations, represented using the following equations:
+
+```{=tex}
+\begin{align*}
+\text{Forecast equation} && \hat{y}_{t+h/t} = l_t + hb_t + s_{t+h-m( k+1 )} \\
+\text{Level equation} && l_t = \alpha (y_t - s_{t-m}) + (1 - \alpha)(l_{t-1} + b_{t-1}) \\
+\text{Trend equation} && b_t = \beta (l_t - l_{t-1}) + (1 - \beta) b_{t-1} \\
+\text{Seasonality equation} && s_t = \gamma (y_t - l_{t-1} - b_{t-1}) + (1 - \gamma)s_{t-m}
+\end{align*}
+```
+with corresponding smoothing parameters $\alpha, \beta$ and $\gamma$
+
+We use $m$ to denote the period of the seasonality, i.e., the number of seasons in a year. For example, for quarterly data m = 4 ,and for monthly data m = 12
+
+where $k$ is the integer part of $(h-1)/m$ , which ensures that the estimates of the seasonal indices used for forecasting come from the final year of the sample.
+
+The level equation shows a weighted average between the seasonally adjusted observation and the non-seasonal forecast for time t .
+
+The trend equation is identical to Holt's linear method. The seasonal equation shows a weighted average between the current seasonal index $(y_t - l_{t-1} - b_{t-1})$ , and the seasonal index of the same season last year (i.e., $m$ time periods ago).
+
+### Example: Tourism in Australia
+
+We apply Holt-Winters' method with both additive seasonality to forecast quarterly visitor nights in Australia spent by domestic tourists.
+
+```{r}
+aus_holidays <- tourism %>%
+  filter(Purpose == "Holiday") %>%
+  summarise(Trips = sum(Trips)/1e3)
+```
+
+```{r}
+fit <- aus_holidays %>%
+  model(
+    trend = ETS(Trips ~ error("A") + trend("A") +
+                             season("N")),
+    additive = ETS(Trips ~ error("A") + trend("A") +
+                             season("A")),
+  )
+fc <- fit %>% forecast(h = "3 years")
+```
+
+```{r}
+fc %>%
+  autoplot(aus_holidays, level = NULL) +
+  labs(title="Australian domestic tourism",
+       y="Overnight trips (millions)") +
+  guides(colour = guide_legend(title = "Forecast"))
+```
+
+```{r}
+fit %>% report()
+```
+
+```{r}
+accuracy(fit)
+```
+
+```{r}
+components(fit) %>% autoplot()
+```
+
+### Example: Streets in Melbourne
+
+The Holt-Winters method can also be used for daily type of data, where the seasonal period is m = 7 and the appropriate unit of time for h is in days. Here we forecast pedestrian traffic at a busy Melbourne train station in July 2016.
+
+```{r}
+sth_cross_ped <- pedestrian %>%
+  filter(Date >= "2016-07-01",
+         Sensor == "Southern Cross Station") %>%
+  index_by(Date) %>%
+  summarise(Count = sum(Count)/1000)
+```
+
+```{r}
+ped <- sth_cross_ped %>%
+  filter(Date <= "2016-07-31") %>%
+  model(
+
+    additive = ETS(Count ~ error("A") + trend("A") + season("A")),
+    ) 
+```
+
+```{r}
+  fit_ped <- ped |> forecast(h = "2 weeks")
+  
+  fit_ped |> autoplot(sth_cross_ped %>% filter(Date <= "2016-08-14")) +
+  labs(title = "Daily traffic: Southern Cross",
+       y="Pedestrians ('000)")
+```
+
+```{r}
+components(ped) |> autoplot()
+```
+
+## Holt-Winters' Multiplicative Method
+
+$$
+\begin{align*}
+  \hat{y}_{t+h|t} &= (\ell_{t} + hb_{t})s_{t+h-m(k+1)} \\
+  \ell_{t} &= \alpha \frac{y_{t}}{s_{t-m}} + (1 - \alpha)(\ell_{t-1} + b_{t-1})\\
+  b_{t} &= \beta^*(\ell_{t}-\ell_{t-1}) + (1 - \beta^*)b_{t-1}                \\
+  s_{t} &= \gamma \frac{y_{t}}{(\ell_{t-1} + b_{t-1})} + (1 - \gamma)s_{t-m}.
+\end{align*}
+$$
+
+Filtering Tourism Data where purpose is holiday and then adding all the trips by the summarize function and dividing it by 1000
+
+```{r}
+aus_holidays <- tourism |>
+  filter(Purpose == "Holiday") |>
+  summarise(Trips = sum(Trips)/1e3)
+```
+
+Selecting multiplicative Model for catching seasonal data
+
+```{r}
+fit <- aus_holidays |>
+  model(
+    additive = ETS(Trips ~ error("A") + trend("A") +
+                                                season("A")),
+    multiplicative = ETS(Trips ~ error("M") + trend("A") +
+                                                season("M"))
+  )
+
+```
+
+Forecasting for the next 3 years and then plotting it on a graph
+
+```{r}
+fc <- fit |> forecast(h = "3 years")
+fc |>
+  autoplot(aus_holidays, level = NULL) +
+  labs(title="Australian domestic tourism",
+       y="Overnight trips (millions)") +
+  guides(colour = guide_legend(title = "Forecast"))
+
+```
+
+```{r}
+fit %>% report()
+
+```
+
+```{r}
+accuracy(fit)
+```
+
+```{r}
+components(fit) %>% autoplot()
+```
+
+## Holt-Winters' Damped Method
+
+Damping is possible with both additive and multiplicative Holt-Winters' methods. A method that often provides accurate and robust forecasts for seasonal data is the Holt-Winters method with a damped trend and multiplicative seasonality: \begin{align*}
+  \hat{y}_{t+h|t} &= \left[\ell_{t} + (\phi+\phi^2 + \dots + \phi^{h})b_{t}\right]s_{t+h-m(k+1)} \\
+  \ell_{t} &= \alpha(y_{t} / s_{t-m}) + (1 - \alpha)(\ell_{t-1} + \phi b_{t-1})\\
+  b_{t} &= \beta^*(\ell_{t} - \ell_{t-1}) + (1 - \beta^*)\phi b_{t-1}             \\
+  s_{t} &= \gamma \frac{y_{t}}{(\ell_{t-1} + \phi b_{t-1})} + (1 - \gamma)s_{t-m}.
+\end{align*} where,\begin{align*}  \alpha , \beta ,\gamma
+\end{align*} are smoothing parameters and Φ is damping parameter
+
+we can use both additive and multiplicative damped method depending upon whether the nature of seasonal component is additive or multiplicative. Damping generally is used to when we are forecasting for a long time horizon in order to avoid over-forecasting
+
+```{r}
+aus_holidays <- tourism |>
+  filter(Purpose == "Holiday") |>
+  summarise(Trips = sum(Trips)/1e3)
+fit <- aus_holidays |>
+  model(
+    additive = ETS(Trips ~ error("A") + trend("A") +
+                                                season("A")),
+    multiplicative = ETS(Trips ~ error("M") + trend("M") +
+                                                season("M")),
+    damped = ETS(Trips ~ error ("M") + trend("Ad") + season("M"))
+    
+  )
+fc <- fit |> forecast(h = "3 years")
+```
+
+```{r}
+fc |>
+  autoplot(aus_holidays, level = NULL) +
+  labs(title="Australian domestic tourism",
+       y="Overnight trips (millions)") +
+  guides(colour = guide_legend(title = "Forecast"))
+```
+
+```{r}
+accuracy(fit)
+```
+
+------------------------------------------------------------------------
+
+# 4. A Taxonomy of exponential smoothing methods
+
+## **Taxonomy**
+
+-   Choose the most appropriate exponential smoothing method.
+-   Helps to differentiate between the different forecasting models. \*It refers to the classification of different smoothing models based on their characteristics or attributes
+
+| **Shorthand** | **Method**                          |
+|:--------------|:------------------------------------|
+| (N,N)         | Simple exponential smoothing        |
+| (A,N)         | Holt's linear method                |
+| (A_d,N)       | Additive damped trend method        |
+| (A,A)         | Additive Holt-Winters' method       |
+| (A,M)         | Multiplicative Holt-Winters' method |
+| (A_d,M)       | Holt-Winters' damped method         |
+
+| **Trend Component**   | **Seasonal Component** | **Model** |
+|:----------------------|:-----------------------|:----------|
+| N (None)              | N (None)               | N,N       |
+| N (None)              | A (Additive)           | N,A       |
+| N (None)              | M (Multiplicative)     | N,M       |
+| A (Additive)          | N (None)               | A,N       |
+| A (Additive)          | A (Additive)           | A,A       |
+| A (Additive)          | M (Multiplicative)     | A,M       |
+| A_d (Additive damped) | N (None)               | A_d,N     |
+| A_d (Additive damped) | A (Additive)           | A_d,A     |
+| A_d (Additive damped) | M (Multiplicative)     | A_d,M     |
+
+------------------------------------------------------------------------
+
+# 5. Innovations state space models for exponential smoothing
+
+Distinguishing between models with additive errors and multiplicative errors and also distinguishing the models from the methods we use a certain format for naming the models that includes three letters ETS (Error, Trend, Seasonal).
+
+### **5.1. ETS{A,N,N}:** simple exponential smoothing with additive errors:-
+
+Forecast equation $\hat{y}_{t+1|t} = l_{t}$
+
+Smoothing equation $l_{t} = \alpha y_{t} + (1-\alpha)l_{t-1}$
+
+smoothing equation for levels we get the error correction form:- $$l_{t-1} + \alpha e_{t} $$
+
+here $e_{t} = y_{t}-\hat{y}_{t|t-1}$
+
+we specify probability distribution for $e_{t}$. for additive errors we assume that residuals $e_{t}$ are normally distributed white noise with mean 0 and variance $\sigma^{2}$.
+
+the new equation of the model can be written as:-
+
+```{=tex}
+\begin{align}
+  y_t &= \ell_{t-1} + \varepsilon_t \tag{measurement}\\
+  \ell_t&=\ell_{t-1}+\alpha \varepsilon_t. \tag{state}
+\end{align}
+```
+### **5.2. ETS{M,N,N}:** simple exponential smoothig with multiplicative errors
+
+Here models with multiplicative errors can be specified by writing relative errors
+
+```{=tex}
+\begin{align}
+\varepsilon_t = \frac{y_t-\hat{y}_{t|t-1}}{\hat{y}_{t|t-1}}
+\end{align}
+```
+we can write the multiplicative form of state space model as
+
+```{=tex}
+\begin{align*}
+  y_t&=\ell_{t-1}(1+\varepsilon_t)\\
+  \ell_t&=\ell_{t-1}(1+\alpha \varepsilon_t).
+\end{align*}
+```
+### **5.3. ETS(A,A,N):** Holt's linear method with additive errors
+
+we assume that one-step-ahead training errors are given by $\epsilon_t=y_t-\ell_{t-1}-b_{t-1} \sim \text{NID}(0,\sigma^2)$ substituting this into the error correction equation for holt's linear method we obtain
+
+```{=tex}
+\begin{align*}
+y_t&=\ell_{t-1}+b_{t-1}+\varepsilon_t\\
+\ell_t&=\ell_{t-1}+b_{t-1}+\alpha \varepsilon_t\\
+b_t&=b_{t-1}+\beta \varepsilon_t,
+\end{align*}
+```
+### **5.4. ETS(M,A,N):** Holt's linear method with multiplicative errors:-
+
+Again specifying one-step-ahead errors as relative erros we get
+
+```{=tex}
+\begin{align}
+\varepsilon_t=\frac{y_t-(\ell_{t-1}+b_{t-1})}{(\ell_{t-1}+b_{t-1})}
+\end{align}
+```
+following similar approach as other models the innovations state space model underlying Holt's Linear method with multiplicative errors becomes
+
+```{=tex}
+\begin{align*}
+y_t&=(\ell_{t-1}+b_{t-1})(1+\varepsilon_t)\\
+\ell_t&=(\ell_{t-1}+b_{t-1})(1+\alpha \varepsilon_t)\\
+b_t&=b_{t-1}+\beta(\ell_{t-1}+b_{t-1}) \varepsilon_t,
+\end{align*}
+```
+# 6. Estimation and Model Selection
+
+## Estimation
+
+</br>
+
+The goal of SES is to find an optimal value of the parameter that balances the importance of past and recent observations in the forecast. The smaller the parameter, the more weight is given to past observations, and vice versa.
+
+One way to estimate parameter is to use the method of maximum likelihood. Another way is to use a grid search, where different alpha values are tried and the best one is selected based on a criterion like the Akaike Information Criterion (AIC).
+
+The likelihood is the probability of the data arising from the specified model. Thus, a large likelihood is associated with a good model.
+
+For an additive error model, maximising the likelihood (assuming normally distributed errors) gives the same results as minimising the sum of squared errors. However, different results will be obtained for multiplicative error models.
+
+We will estimate the smoothing parameters $\alpha$, $\beta$, $\gamma$ and $\phi$, and the initial states $l_0$, $b_0$, $s_0$, $s_{-1}$,...., $s_{-m+1}$, by maximising the likelihood.
+
+$L^*(\theta,x_0)=Tlog(\sum_{t=1}^{T}\varepsilon_t^2)+2\sum_{t=1}^{T}log|k(x_{t-1})|= -2log(Likelihood)+constant$ estimating parameters by minimising $L^*$
+
+</br>
+
+#### Parameter Constraints
+
+</br>
+
+The parameters have been constrained to lie between 0 and 1 so that the equations can be interpreted as weighted averages. $0<\alpha,\beta^*,\gamma^*,\phi<1$. For state space models, we have $\beta=\alpha\beta^*$ and $\gamma=(1-\alpha)\gamma^*$. Therefore, the traditional restrictions translate to $0<\alpha<1$, $0<\beta<\alpha$ and $0<\gamma<(1-\alpha)$. The damping parameter $\phi$ is usually constrained further to prevent numerical difficulties in estimating the model. In the fable package, it is restricted so that $0.8<\phi<0.98$.
+
+The parameters are constrained in order to prevent observations in the distant past having a continuing effect on current forecasts. This leads to some admissibility constraints on the parameters, which are usually (but not always) less restrictive than the traditional constraints region.
+
+Traditional constraints are constraints that are imposed on the problem based on external or physical limitations. Admissible constraints, on the other hand, are constraints that are imposed based on the nature of the problem and the solution space.
+
+For example, for the ETS(A,N,N) model, the traditional parameter region is $0<\alpha<1$ but the admissible region is $o<\alpha<2$.
+
+</br>
+
+## Model Selection
+
+</br>
+
+A great advantage of the ETS statistical framework is that information criteria can be used for model selection. For ETS models, Akaike's Information Criterion (AIC) is defined as
+
+<center>$AIC=-2log(L)+2k$</center>
+
+Where L is the likelihood of the model and k is the total number of parameters and initial states that have been estimated (including the residual variance).
+
+The AIC corrected for small sample bias $AIC_c$ is defined as
+
+<center>$AIC_c=AIC+\frac{2k(k+1)}{T-k-1}$</center>
+
+and the Bayesian Information Criterion (BIC) is
+
+<center>$BIC=AIC+k[log(T)-2]$</center>
+
+</br>
+
+#### Example: Domestic holiday tourist visitor nights in Australia
+
+```{r , echo=TRUE}
+aus_holidays <- tourism |>
+  filter(Purpose == "Holiday") |>
+  summarise(Trips = sum(Trips)/1000)
+
+fit <- aus_holidays |>
+  model(ETS(Trips))
+report(fit)
+```
+
+</br>
+
+Here ETS() function select the model by minimising the $AIC_c$. The model selected is ETS(M,N,A). In this model, the forecast for the next time period is based on a combination of the current level estimate and the expected seasonal pattern for that time period. The small values of $\gamma$ indicate that the seasonal states change very little over time. Therefore
+
+<center>
+
+$y_t=(l_t+s_{t-m})(1+\varepsilon_t)$
+
+$l_t=l_{t-1}+\alpha(l_{t-1}+s_{t-m})\varepsilon_t$
+
+$s_t=s_{t-m}+\gamma(l_{t-1}+s_{t-m})\varepsilon_t$
+
+</center>
+
+</br>
+
+```{r ,include=TRUE}
+components(fit) |>
+  autoplot() +
+  labs(title = "ETS(M,N,A) components")
+```
+
+</br>
+
+Because this model has multiplicative errors, the innovation residuals are not equivalent to the regular residuals (i.e., the one-step training errors).
+
+Response residuals
+
+<center>$e_t=Y_t-\hat{Y}_{t|t-1}$</center>
+
+Innovation residuals
+
+Additive error model:
+
+<center>$\hat{\varepsilon_t}=Y_t-\hat{Y}_{t|t-1}=e_t$</center>
+
+Multiplicative error model:
+
+<center>$\hat{\varepsilon_t}=\frac{Y_t-\hat{Y}_{t|t-1}}{\hat{Y}_{t|t-1}}\neq e_t$</center>
+
+</br>
+
+```{r ,include=TRUE}
+fit |> augment()
+```
+
+</br>
+
+It means that the model is not capturing all the underlying patterns in the data. This could be due to various reasons, such as the model not including all relevant components, or the chosen model form not being appropriate for the underlying data.
+
+</br>
+
+------------------------------------------------------------------------
+
+# 7. Forecasting with ETS models
+
+```{r}
+h02<-PBS|>
+  filter(ATC2=="H02")|>
+  summarize(Cost=sum(Cost))
+h02|>autoplot(Cost)
+```
+
+```{r}
+h02|>
+  model(ETS(Cost))|>
+  report()
+
+```
+
+```{r}
+h02|>
+  model(ETS(Cost~error("A")+trend("A")+season("A")))|>
+  report()
+```
+
+```{r}
+h02|>
+  model(ETS(Cost))|>
+  forecast()|>
+  autoplot(h02)
+```
+
+```{r}
+h02|>
+  model(
+    auto=ETS(Cost),
+    AAA=ETS(Cost~error("A")+trend("A")+season("A"))
+  )|>
+  accuracy()
+```
+
+------------------------------------------------------------------------
+
+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\--END\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\--
